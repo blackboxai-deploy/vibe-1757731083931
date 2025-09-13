@@ -1,0 +1,246 @@
+:root {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+body {
+  background: #f6f8fb;
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.app-shell {
+  max-width: 1400px;
+  margin: 24px auto;
+}
+
+.family-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(20, 30, 50, 0.1);
+  margin-bottom: 16px;
+  border: 1px solid #e0e0e0;
+}
+
+.member-list {
+  max-height: 300px;
+  overflow: auto;
+}
+
+.member-item {
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  margin-bottom: 5px;
+}
+
+.member-item:hover {
+  background: #f1f5ff;
+}
+
+.selected {
+  background: #e7f0ff;
+  border-left: 4px solid #0d6efd;
+}
+
+.health-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.health-good {
+  background-color: #4caf50;
+}
+
+.health-moderate {
+  background-color: #ff9800;
+}
+
+.health-poor {
+  background-color: #f44336;
+}
+
+.cesfam-header {
+  background: #0d6efd;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-card {
+  text-align: center;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.metric-value {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.metric-label {
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.timeline {
+  position: relative;
+  padding-left: 30px;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.timeline-item:before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #0d6efd;
+}
+
+.timeline-content {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 3px solid #0d6efd;
+}
+
+.exam-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #fff;
+}
+
+.exam-date {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.exam-value {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.add-record-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #0d6efd;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  cursor: pointer;
+  border: none;
+}
+
+.genogram-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(20, 30, 50, 0.1);
+  margin-top: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.legend {
+  font-size: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.legend-symbol {
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+  border: 1px solid #555;
+}
+
+.tooltip {
+  position: absolute;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  border-radius: 4px;
+  pointer-events: none;
+  font-size: 12px;
+  z-index: 10;
+}
+
+h3, h6 {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+h3 {
+  border-bottom: 2px solid #0d6efd;
+  padding-bottom: 8px;
+}
+
+.nav-tabs .nav-link.active {
+  font-weight: 600;
+  border-bottom: 3px solid #0d6efd;
+}
+
+.modal-content {
+  border-radius: 10px;
+}
+
+/* D3 Genogram Styles */
+.node rect {
+  cursor: pointer;
+  stroke-width: 1.5px;
+}
+
+.node circle {
+  cursor: pointer;
+  stroke-width: 1.5px;
+}
+
+.node text {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.link {
+  fill: none;
+  stroke: #78909c;
+  stroke-width: 2px;
+}
