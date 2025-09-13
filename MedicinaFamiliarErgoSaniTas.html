@@ -1,0 +1,1120 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Panel Familiar - Ergo SaniTas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background:#f6f8fb; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .app-shell{ max-width:1400px; margin:24px auto; }
+    .family-card{ background:#fff; border-radius:8px; padding:16px; box-shadow:0 2px 8px rgba(20,30,50,0.1); margin-bottom:16px; border:1px solid #e0e0e0; }
+    .member-list{ max-height:300px; overflow:auto; }
+    .member-item{ cursor:pointer; padding:10px; border-radius:6px; border:1px solid #e9ecef; margin-bottom:5px; }
+    .member-item:hover{ background:#f1f5ff }
+    .selected{ background:#e7f0ff; border-left:4px solid #0d6efd; }
+    #genograma{ background:#fff; border-radius:8px; padding:16px; box-shadow:0 2px 8px rgba(20,30,50,0.1); margin-top:20px; border:1px solid #e0e0e0; }
+    .node rect { cursor:pointer; stroke-width:1.5px; }
+    .node circle { cursor:pointer; stroke-width:1.5px; }
+    .node text { font-size:11px; font-weight:500; }
+    .link { fill:none; stroke:#78909c; stroke-width:2px; }
+    .legend { font-size: 12px; }
+    .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+    .legend-symbol { width: 20px; height: 20px; margin-right: 5px; border:1px solid #555; }
+    .tooltip {
+      position: absolute;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      border-radius: 4px;
+      pointer-events: none;
+      font-size: 12px;
+      z-index: 10;
+    }
+    h3, h6 { color: #2c3e50; font-weight:600; }
+    h3 { border-bottom: 2px solid #0d6efd; padding-bottom: 8px; }
+    .health-indicator { 
+      display: inline-block; 
+      width: 10px; 
+      height: 10px; 
+      border-radius: 50%; 
+      margin-right: 5px; 
+    }
+    .health-good { background-color: #4caf50; }
+    .health-moderate { background-color: #ff9800; }
+    .health-poor { background-color: #f44336; }
+    .cesfam-header { 
+      background: #0d6efd; 
+      color: white; 
+      padding: 10px 15px; 
+      border-radius: 6px; 
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav-tabs .nav-link.active { font-weight: 600; border-bottom: 3px solid #0d6efd; }
+    .metric-card { text-align: center; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+    .metric-value { font-size: 24px; font-weight: bold; }
+    .metric-label { font-size: 14px; color: #6c757d; }
+    .timeline { position: relative; padding-left: 30px; }
+    .timeline-item { position: relative; margin-bottom: 20px; }
+    .timeline-item:before { 
+      content: ''; 
+      position: absolute; 
+      left: -20px; 
+      top: 5px; 
+      width: 12px; 
+      height: 12px; 
+      border-radius: 50%; 
+      background: #0d6efd; 
+    }
+    .timeline-content { 
+      background: #f8f9fa; 
+      padding: 15px; 
+      border-radius: 6px; 
+      border-left: 3px solid #0d6efd; 
+    }
+    .exam-card { 
+      border: 1px solid #e0e0e0; 
+      border-radius: 8px; 
+      padding: 15px; 
+      margin-bottom: 15px; 
+      background: #fff; 
+    }
+    .exam-date { font-size: 12px; color: #6c757d; }
+    .exam-value { font-size: 18px; font-weight: bold; }
+    .add-record-btn { 
+      position: fixed; 
+      bottom: 30px; 
+      right: 30px; 
+      width: 60px; 
+      height: 60px; 
+      border-radius: 50%; 
+      background: #0d6efd; 
+      color: white; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+      z-index: 1000; 
+      cursor: pointer; 
+    }
+    .modal-content { border-radius: 10px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="cesfam-header">
+    <h3 class="mb-0"><i class="fas fa-heartbeat me-2"></i>Panel Familiar — CESFAM Ergo SaniTas</h3>
+    <span>Historial de Salud Familiar</span>
+  </div>
+
+  <div class="row">
+    <!-- Columna izquierda: lista miembros -->
+    <div class="col-md-3">
+      <div class="family-card">
+        <h6><i class="fas fa-users me-2"></i>Miembros de la familia</h6>
+        <div id="memberList" class="member-list"></div>
+      </div>
+      
+      <div class="family-card">
+        <h6><i class="fas fa-info-circle me-2"></i>Información Familiar</h6>
+        <div id="familySummary">
+          <p class="mb-1">5 integrantes registrados</p>
+          <p class="mb-1">2 con salud óptima</p>
+          <p class="mb-1">2 con salud moderada</p>
+          <p>1 requiere atención</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Columna central: dashboard del miembro -->
+    <div class="col-md-9">
+      <div class="family-card">
+        <h4 id="memberName">Seleccione un miembro</h4>
+        <p class="text-muted" id="memberDetails">Para ver su dashboard de salud</p>
+        
+        <ul class="nav nav-tabs mb-3" id="memberTabs">
+          <li class="nav-item">
+            <a class="nav-link active" id="overview-tab" data-bs-toggle="tab" href="#overview">Resumen</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="history-tab" data-bs-toggle="tab" href="#history">Historial Clínico</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="exams-tab" data-bs-toggle="tab" href="#exams">Exámenes Médicos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="trends-tab" data-bs-toggle="tab" href="#trends">Tendencias</a>
+          </li>
+        </ul>
+        
+        <div class="tab-content" id="memberTabContent">
+          <!-- Pestaña de Resumen -->
+          <div class="tab-pane fade show active" id="overview">
+            <div class="row">
+              <div class="col-md-8">
+                <div class="family-card">
+                  <h6>Estado de Salud Actual</h6>
+                  <canvas id="healthChart" height="250"></canvas>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="metric-card bg-light">
+                  <div class="metric-value" id="pressureValue">-</div>
+                  <div class="metric-label">Presión Arterial</div>
+                </div>
+                <div class="metric-card bg-light">
+                  <div class="metric-value" id="glucoseValue">-</div>
+                  <div class="metric-label">Glucosa</div>
+                </div>
+                <div class="metric-card bg-light">
+                  <div class="metric-value" id="cholesterolValue">-</div>
+                  <div class="metric-label">Colesterol</div>
+                </div>
+                <div class="metric-card bg-light">
+                  <div class="metric-value" id="bmiValue">-</div>
+                  <div class="metric-label">IMC</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="row mt-3">
+              <div class="col-md-12">
+                <div class="family-card">
+                  <h6>Últimos Eventos Clínicos</h6>
+                  <div id="recentEvents">
+                    <p class="text-center text-muted">No hay eventos recientes</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Pestaña de Historial Clínico -->
+          <div class="tab-pane fade" id="history">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6>Historial de Consultas y Tratamientos</h6>
+              <button class="btn btn-sm btn-outline-primary" onclick="showAddHistoryForm()">
+                <i class="fas fa-plus me-1"></i>Agregar Registro
+              </button>
+            </div>
+            
+            <div class="timeline" id="clinicalHistory">
+              <p class="text-center text-muted">Cargando historial...</p>
+            </div>
+          </div>
+          
+          <!-- Pestaña de Exámenes Médicos -->
+          <div class="tab-pane fade" id="exams">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6>Registro de Exámenes Médicos</h6>
+              <button class="btn btn-sm btn-outline-primary" onclick="showAddExamForm()">
+                <i class="fas fa-plus me-1"></i>Agregar Examen
+              </button>
+            </div>
+            
+            <div class="row" id="medicalExams">
+              <div class="col-md-12">
+                <p class="text-center text-muted">Cargando exámenes...</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Pestaña de Tendencias -->
+          <div class="tab-pane fade" id="trends">
+            <div class="family-card">
+              <h6>Evolución de Indicadores de Salud</h6>
+              <canvas id="trendsChart" height="300"></canvas>
+            </div>
+            
+            <div class="row mt-3">
+              <div class="col-md-6">
+                <div class="family-card">
+                  <h6>Comparativa Familiar</h6>
+                  <canvas id="familyComparisonChart" height="250"></canvas>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="family-card">
+                  <h6>Recomendaciones Personalizadas</h6>
+                  <div id="recommendations">
+                    <div class="alert alert-info">
+                      <i class="fas fa-info-circle me-2"></i>Seleccione un miembro para ver recomendaciones personalizadas
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección Genograma -->
+  <div id="genograma">
+    <h6><i class="fas fa-project-diagram me-2"></i>Genograma Familiar</h6>
+    <div class="d-flex flex-wrap mb-3">
+      <div class="legend-item me-3"><div class="legend-symbol bg-primary"></div> <span>Varón</span></div>
+      <div class="legend-item me-3"><div class="legend-symbol bg-danger rounded-circle"></div> <span>Mujer</span></div>
+      <div class="legend-item me-3"><div class="legend-symbol bg-success"></div> <span>Salud buena</span></div>
+      <div class="legend-item me-3"><div class="legend-symbol bg-warning"></div> <span>Salud moderada</span></div>
+      <div class="legend-item"><div class="legend-symbol bg-danger"></div> <span>Salud en riesgo</span></div>
+    </div>
+    <svg id="genogramaSvg" width="100%" height="500"></svg>
+  </div>
+</div>
+
+<!-- Botón flotante para agregar registros -->
+<div class="add-record-btn" data-bs-toggle="modal" data-bs-target="#addRecordModal">
+  <i class="fas fa-plus fa-lg"></i>
+</div>
+
+<!-- Modal para agregar registros -->
+<div class="modal fade" id="addRecordModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addRecordModalTitle">Agregar Registro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="addRecordModalBody">
+        <!-- Contenido dinámico según el tipo de registro -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="saveRecordBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Datos de ejemplo ampliados
+const familia = {
+  miembros: [
+    { 
+      id:'m1', 
+      nombre:'Carlos Pérez', 
+      edad:48, 
+      genero:'M', 
+      rol: 'Padre', 
+      salud:{peso:85, altura:1.75, presion:130, glucosa:110, colesterol:190},
+      historial: [
+        { fecha: '2023-10-15', tipo: 'consulta', motivo: 'Control anual', diagnostico: 'Hipertensión leve', tratamiento: 'Dieta baja en sal y ejercicio' },
+        { fecha: '2023-05-20', tipo: 'consulta', motivo: 'Dolor de espalda', diagnostico: 'Contractura muscular', tratamiento: 'Antiinflamatorios y fisioterapia' }
+      ],
+      examenes: [
+        { fecha: '2023-10-10', tipo: 'sangre', glucosa: 110, colesterol: 190, trigliceridos: 150 },
+        { fecha: '2023-04-05', tipo: 'orina', resultado: 'Normal', observaciones: 'Sin hallazgos relevantes' }
+      ]
+    },
+    { 
+      id:'m2', 
+      nombre:'María Gómez', 
+      edad:45, 
+      genero:'F', 
+      rol: 'Madre', 
+      salud:{peso:70, altura:1.62, presion:120, glucosa:90, colesterol:170},
+      historial: [
+        { fecha: '2023-09-10', tipo: 'consulta', motivo: 'Control ginecológico', diagnostico: 'Normal', tratamiento: 'Control anual' }
+      ],
+      examenes: [
+        { fecha: '2023-09-05', tipo: 'sangre', glucosa: 90, colesterol: 170, trigliceridos: 120 },
+        { fecha: '2023-09-05', tipo: 'mamografía', resultado: 'Normal', observaciones: 'Sin hallazgos' }
+      ]
+    },
+    { 
+      id:'m3', 
+      nombre:'Sofía Pérez', 
+      edad:17, 
+      genero:'F', 
+      rol: 'Hija', 
+      salud:{peso:55, altura:1.65, presion:110, glucosa:85, colesterol:150},
+      historial: [
+        { fecha: '2023-08-25', tipo: 'consulta', motivo: 'Control adolescente', diagnostico: 'Salud óptima', tratamiento: 'Continuar con hábitos saludables' }
+      ],
+      examenes: [
+        { fecha: '2023-08-20', tipo: 'sangre', glucosa: 85, colesterol: 150, trigliceridos: 100 }
+      ]
+    },
+    { 
+      id:'m4', 
+      nombre:'Diego Pérez', 
+      edad:14, 
+      genero:'M', 
+      rol: 'Hijo', 
+      salud:{peso:60, altura:1.70, presion:115, glucosa:88, colesterol:160},
+      historial: [
+        { fecha: '2023-07-15', tipo: 'consulta', motivo: 'Control pediátrico', diagnostico: 'Crecimiento normal', tratamiento: 'Alimentación balanceada' }
+      ],
+      examenes: [
+        { fecha: '2023-07-10', tipo: 'sangre', glucosa: 88, colesterol: 160, trigliceridos: 110 }
+      ]
+    },
+    { 
+      id:'m5', 
+      nombre:'Ana Rodríguez', 
+      edad:72, 
+      genero:'F', 
+      rol: 'Abuela', 
+      salud:{peso:68, altura:1.60, presion:140, glucosa:130, colesterol:210},
+      historial: [
+        { fecha: '2023-10-05', tipo: 'consulta', motivo: 'Control geriátrico', diagnostico: 'Diabetes tipo 2', tratamiento: 'Metformina 500mg 2 veces al día' },
+        { fecha: '2023-06-12', tipo: 'consulta', motivo: 'Dolor articular', diagnostico: 'Artrosis', tratamiento: 'Analgésicos y fisioterapia' }
+      ],
+      examenes: [
+        { fecha: '2023-10-01', tipo: 'sangre', glucosa: 130, colesterol: 210, trigliceridos: 180 },
+        { fecha: '2023-06-10', tipo: 'densitometría', resultado: 'Osteopenia', observaciones: 'Suplementación con calcio y vitamina D' }
+      ]
+    }
+  ],
+  relaciones: {
+    name: "Familia Pérez Gómez",
+    children: [
+      {
+        name: "Carlos Pérez",
+        id: "m1",
+        spouse: "m2",
+        children:[
+          { name: "Sofía Pérez", id: "m3" },
+          { name: "Diego Pérez", id: "m4" }
+        ]
+      },
+      {
+        name: "María Gómez",
+        id: "m2",
+        spouse: "m1",
+        children:[
+          { name: "Sofía Pérez", id: "m3" },
+          { name: "Diego Pérez", id: "m4" }
+        ]
+      },
+      {
+        name: "Ana Rodríguez",
+        id: "m5"
+      }
+    ]
+  }
+};
+
+// Variables globales
+let healthChart;
+let trendsChart;
+let familyComparisonChart;
+let selectedMemberId = null;
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+  renderMemberList();
+  renderGenograma();
+  updateFamilySummary();
+});
+
+// Funciones de renderizado
+function renderMemberList(){
+  const list = document.getElementById('memberList');
+  list.innerHTML = '';
+  familia.miembros.forEach(m => {
+    const healthStatus = getHealthStatus(m);
+    const healthClass = getHealthClass(healthStatus);
+    
+    const div = document.createElement('div');
+    div.className = 'member-item';
+    div.dataset.id = m.id;
+    div.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <strong>${m.nombre}</strong><br>
+          <small>${m.rol}, ${m.edad} años</small>
+        </div>
+        <span class="badge ${healthClass}">${healthStatus}</span>
+      </div>
+    `;
+    div.addEventListener('click', () => selectMember(m.id));
+    list.appendChild(div);
+  });
+}
+
+function selectMember(id){
+  selectedMemberId = id;
+  const m = familia.miembros.find(x => x.id === id);
+  if(!m) return;
+  
+  // Actualizar selección visual
+  document.querySelectorAll('.member-item').forEach(el => el.classList.remove('selected'));
+  const sel = document.querySelector(`[data-id='${id}']`);
+  if(sel) sel.classList.add('selected');
+  
+  // Actualizar información del miembro
+  document.getElementById('memberName').textContent = m.nombre;
+  document.getElementById('memberDetails').textContent = `${m.rol}, ${m.edad} años`;
+  
+  // Renderizar gráficos y datos
+  renderHealthChart(m);
+  renderMetrics(m);
+  renderRecentEvents(m);
+  renderClinicalHistory(m);
+  renderMedicalExams(m);
+  renderTrendsChart(m);
+  renderFamilyComparison(m);
+  renderRecommendations(m);
+}
+
+function renderHealthChart(member){
+  const ctx = document.getElementById('healthChart');
+  if(healthChart) healthChart.destroy();
+  
+  const labels = ['Peso', 'Presión', 'Glucosa', 'Colesterol'];
+  const data = [member.salud.peso, member.salud.presion, member.salud.glucosa, member.salud.colesterol];
+  
+  healthChart = new Chart(ctx, {
+    type: 'radar',
+    data: { 
+      labels, 
+      datasets: [{ 
+        label: 'Valores Actuales', 
+        data, 
+        fill: true, 
+        backgroundColor: 'rgba(13,110,253,0.2)', 
+        borderColor: '#0d6efd',
+        pointBackgroundColor: '#0d6efd',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: '#0d6efd'
+      }]
+    },
+    options: { 
+      scales: { 
+        r: { 
+          beginAtZero: true,
+          angleLines: { color: 'rgba(0,0,0,0.1)' },
+          grid: { color: 'rgba(0,0,0,0.1)' },
+          pointLabels: { font: { size: 11 } }
+        } 
+      },
+      plugins: {
+        legend: { labels: { font: { size: 12 } } }
+      }
+    }
+  });
+}
+
+function renderMetrics(member){
+  document.getElementById('pressureValue').textContent = `${member.salud.presion} mmHg`;
+  document.getElementById('glucoseValue').textContent = `${member.salud.glucosa} mg/dL`;
+  document.getElementById('cholesterolValue').textContent = `${member.salud.colesterol} mg/dL`;
+  
+  // Calcular IMC
+  const imc = (member.salud.peso / (member.salud.altura * member.salud.altura)).toFixed(1);
+  document.getElementById('bmiValue').textContent = imc;
+}
+
+function renderRecentEvents(member){
+  const container = document.getElementById('recentEvents');
+  if (!member.historial || member.historial.length === 0) {
+    container.innerHTML = '<p class="text-center text-muted">No hay eventos recientes</p>';
+    return;
+  }
+  
+  // Ordenar por fecha (más reciente primero)
+  const sortedHistory = [...member.historial].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const recent = sortedHistory.slice(0, 3);
+  
+  let html = '';
+  recent.forEach(event => {
+    html += `
+      <div class="exam-card">
+        <div class="d-flex justify-content-between">
+          <strong>${event.motivo}</strong>
+          <span class="exam-date">${formatDate(event.fecha)}</span>
+        </div>
+        <p class="mb-1">${event.diagnostico}</p>
+        <small class="text-muted">Tratamiento: ${event.tratamiento}</small>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+function renderClinicalHistory(member){
+  const container = document.getElementById('clinicalHistory');
+  if (!member.historial || member.historial.length === 0) {
+    container.innerHTML = '<p class="text-center text-muted">No hay registros en el historial clínico</p>';
+    return;
+  }
+  
+  // Ordenar por fecha (más reciente primero)
+  const sortedHistory = [...member.historial].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  
+  let html = '';
+  sortedHistory.forEach(event => {
+    html += `
+      <div class="timeline-item">
+        <div class="timeline-content">
+          <div class="d-flex justify-content-between">
+            <h6 class="mb-1">${event.motivo}</h6>
+            <span class="text-muted">${formatDate(event.fecha)}</span>
+          </div>
+          <p class="mb-1"><strong>Diagnóstico:</strong> ${event.diagnostico}</p>
+          <p class="mb-0"><strong>Tratamiento:</strong> ${event.tratamiento}</p>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+function renderMedicalExams(member){
+  const container = document.getElementById('medicalExams');
+  if (!member.examenes || member.examenes.length === 0) {
+    container.innerHTML = '<p class="text-center text-muted">No hay exámenes médicos registrados</p>';
+    return;
+  }
+  
+  // Ordenar por fecha (más reciente primero)
+  const sortedExams = [...member.examenes].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  
+  let html = '';
+  sortedExams.forEach(exam => {
+    html += `
+      <div class="col-md-6 mb-3">
+        <div class="exam-card">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">${getExamTypeName(exam.tipo)}</h6>
+            <span class="exam-date">${formatDate(exam.fecha)}</span>
+          </div>
+          ${renderExamDetails(exam)}
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+function renderExamDetails(exam){
+  switch(exam.tipo){
+    case 'sangre':
+      return `
+        <div class="row">
+          <div class="col-6">
+            <small class="text-muted">Glucosa</small>
+            <div class="exam-value">${exam.glucosa} mg/dL</div>
+          </div>
+          <div class="col-6">
+            <small class="text-muted">Colesterol</small>
+            <div class="exam-value">${exam.colesterol} mg/dL</div>
+          </div>
+          <div class="col-6">
+            <small class="text-muted">Triglicéridos</small>
+            <div class="exam-value">${exam.trigliceridos} mg/dL</div>
+          </div>
+        </div>
+      `;
+    case 'orina':
+      return `
+        <div class="exam-value">${exam.resultado}</div>
+        <small class="text-muted">${exam.observaciones || ''}</small>
+      `;
+    default:
+      return `
+        <div class="exam-value">${exam.resultado}</div>
+        <small class="text-muted">${exam.observaciones || ''}</small>
+      `;
+  }
+}
+
+function renderTrendsChart(member){
+  const ctx = document.getElementById('trendsChart');
+  if(trendsChart) trendsChart.destroy();
+  
+  // Datos de ejemplo para tendencias
+  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const glucoseData = [105, 102, 108, 110, 107, 109, 112, 110, 108, 110];
+  const pressureData = [125, 128, 130, 132, 129, 130, 132, 130, 129, 130];
+  
+  trendsChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months.slice(0, 10),
+      datasets: [
+        {
+          label: 'Glucosa (mg/dL)',
+          data: glucoseData,
+          borderColor: '#dc3545',
+          backgroundColor: 'rgba(220, 53, 69, 0.1)',
+          fill: true,
+          tension: 0.4
+        },
+        {
+          label: 'Presión Sistólica (mmHg)',
+          data: pressureData,
+          borderColor: '#0d6efd',
+          backgroundColor: 'rgba(13, 110, 253, 0.1)',
+          fill: true,
+          tension: 0.4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        y: { beginAtZero: false }
+      }
+    }
+  });
+}
+
+function renderFamilyComparison(member){
+  const ctx = document.getElementById('familyComparisonChart');
+  if(familyComparisonChart) familyComparisonChart.destroy();
+  
+  const labels = familia.miembros.map(m => m.nombre.split(' ')[0]);
+  const glucoseData = familia.miembros.map(m => m.salud.glucosa);
+  const pressureData = familia.miembros.map(m => m.salud.presion);
+  
+  familyComparisonChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Glucosa (mg/dL)',
+          data: glucoseData,
+          backgroundColor: 'rgba(220, 53, 69, 0.7)'
+        },
+        {
+          label: 'Presión (mmHg)',
+          data: pressureData,
+          backgroundColor: 'rgba(13, 110, 253, 0.7)'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+function renderRecommendations(member){
+  const container = document.getElementById('recommendations');
+  const healthStatus = getHealthStatus(member);
+  
+  let recommendations = '';
+  
+  if (healthStatus === 'Requiere atención') {
+    recommendations = `
+      <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Atención requerida</strong>
+        <p>Se recomienda consultar con un especialista para evaluar su condición actual.</p>
+      </div>
+    `;
+  } else if (healthStatus === 'Moderado') {
+    recommendations = `
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Mejoras recomendadas</strong>
+        <ul>
+          <li>Mantener una dieta balanceada baja en azúcares</li>
+          <li>Realizar ejercicio físico regularmente</li>
+          <li>Controlar presión arterial semanalmente</li>
+        </ul>
+      </div>
+    `;
+  } else {
+    recommendations = `
+      <div class="alert alert-success">
+        <i class="fas fa-check-circle me-2"></i>
+        <strong>¡Buen estado de salud!</strong>
+        <p>Continue con sus hábitos saludables y controles periódicos.</p>
+      </div>
+    `;
+  }
+  
+  // Recomendaciones específicas según valores
+  if (member.salud.presion > 130) {
+    recommendations += `
+      <div class="alert alert-secondary mt-2">
+        <i class="fas fa-heartbeat me-2"></i>
+        <strong>Presión arterial elevada</strong>
+        <p>Considere reducir el consumo de sal y realizar actividad física regular.</p>
+      </div>
+    `;
+  }
+  
+  if (member.salud.glucosa > 110) {
+    recommendations += `
+      <div class="alert alert-secondary mt-2">
+        <i class="fas fa-tint me-2"></i>
+        <strong>Glucosa elevada</strong>
+        <p>Reduzca el consumo de azúcares simples y harinas refinadas.</p>
+      </div>
+    `;
+  }
+  
+  container.innerHTML = recommendations;
+}
+
+function renderGenograma(){
+  const data = familia.relaciones;
+  const svg = d3.select("#genogramaSvg"),
+        width = +svg.node().getBoundingClientRect().width,
+        height = +svg.attr("height");
+  
+  // Clear previous content
+  svg.selectAll("*").remove();
+  
+  // Create tooltip
+  const tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+  const root = d3.hierarchy(data);
+  const treeLayout = d3.tree().size([width-100, height-100]);
+  treeLayout(root);
+
+  // Enlaces
+  svg.selectAll('path.link')
+    .data(root.links())
+    .enter()
+    .append('path')
+    .attr('class','link')
+    .attr('d', d3.linkVertical()
+      .x(d=>d.x+50)
+      .y(d=>d.y+50)
+    );
+
+  // Nodos
+  const node = svg.selectAll('g.node')
+    .data(root.descendants())
+    .enter()
+    .append('g')
+    .attr('class','node')
+    .attr('transform', d=>`translate(${d.x+50},${d.y+50})`);
+
+  // Draw different shapes based on member data
+  node.each(function(d) {
+    if (!d.data.id) return; // Skip root node
+    
+    const member = familia.miembros.find(m => m.id === d.data.id);
+    if (!member) return;
+    
+    const healthColor = getHealthColor(member);
+    const nodeGroup = d3.select(this);
+    
+    // Draw different shapes based on gender
+    if (member.genero === 'M') {
+      // Men: square
+      nodeGroup.append('rect')
+        .attr('x', -15)
+        .attr('y', -15)
+        .attr('width', 30)
+        .attr('height', 30)
+        .attr('fill', healthColor)
+        .attr('stroke', '#333')
+        .attr('stroke-width', 1)
+        .on('click', (event) => {
+          if(d.data.id){ selectMember(d.data.id); }
+        })
+        .on('mouseover', function(event) {
+          tooltip.transition().duration(200).style("opacity", .9);
+          tooltip.html(`
+            <strong>${member.nombre}</strong><br>
+            Edad: ${member.edad} años<br>
+            Rol: ${member.rol}<br>
+            Estado: ${getHealthStatus(member)}
+          `)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+        })
+        .on('mouseout', function() {
+          tooltip.transition().duration(500).style("opacity", 0);
+        });
+    } else {
+      // Women: circle
+      nodeGroup.append('circle')
+        .attr('r', 15)
+        .attr('fill', healthColor)
+        .attr('stroke', '#333')
+        .attr('stroke-width', 1)
+        .on('click', (event) => {
+          if(d.data.id){ selectMember(d.data.id); }
+        })
+        .on('mouseover', function(event) {
+          tooltip.transition().duration(200).style("opacity", .9);
+          tooltip.html(`
+            <strong>${member.nombre}</strong><br>
+            Edad: ${member.edad} años<br>
+            Rol: ${member.rol}<br>
+            Estado: ${getHealthStatus(member)}
+          `)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+        })
+        .on('mouseout', function() {
+          tooltip.transition().duration(500).style("opacity", 0);
+        });
+    }
+  });
+
+  // Add text labels
+  node.append('text')
+    .attr('dy', 30)
+    .attr('x', 0)
+    .attr('text-anchor', 'middle')
+    .text(d=> {
+      if (!d.data.id) return d.data.name; // For root node
+      const member = familia.miembros.find(m => m.id === d.data.id);
+      return member ? member.nombre.split(' ')[0] : d.data.name;
+    });
+}
+
+// Funciones auxiliares
+function getHealthStatus(member) {
+  const { presion, glucosa, colesterol } = member.salud;
+  let riskFactors = 0;
+  
+  if (presion > 130) riskFactors++;
+  if (glucosa > 110) riskFactors++;
+  if (colesterol > 200) riskFactors++;
+  
+  if (riskFactors === 0) return "Óptimo";
+  if (riskFactors === 1) return "Moderado";
+  return "Requiere atención";
+}
+
+function getHealthClass(healthStatus) {
+  switch(healthStatus) {
+    case "Óptimo": return "bg-success";
+    case "Moderado": return "bg-warning text-dark";
+    case "Requiere atención": return "bg-danger";
+    default: return "bg-secondary";
+  }
+}
+
+function getHealthColor(member) {
+  const healthStatus = getHealthStatus(member);
+  switch(healthStatus) {
+    case "Óptimo": return "#4caf50";
+    case "Moderado": return "#ff9800";
+    case "Requiere atención": return "#f44336";
+    default: return "#9e9e9e";
+  }
+}
+
+function formatDate(dateString) {
+  const options = { year: 'numeric', month: 'short', day: 'numeric' };
+  return new Date(dateString).toLocaleDateString('es-ES', options);
+}
+
+function getExamTypeName(type) {
+  const types = {
+    'sangre': 'Análisis de Sangre',
+    'orina': 'Análisis de Orina',
+    'mamografía': 'Mamografía',
+    'densitometría': 'Densitometría Ósea'
+  };
+  return types[type] || type;
+}
+
+function updateFamilySummary() {
+  let optimal = 0, moderate = 0, attention = 0;
+  
+  familia.miembros.forEach(m => {
+    const status = getHealthStatus(m);
+    if (status === "Óptimo") optimal++;
+    else if (status === "Moderado") moderate++;
+    else attention++;
+  });
+  
+  document.getElementById('familySummary').innerHTML = `
+    <p class="mb-1">${familia.miembros.length} integrantes registrados</p>
+    <p class="mb-1">${optimal} con salud óptima</p>
+    <p class="mb-1">${moderate} con salud moderada</p>
+    <p>${attention} requiere atención</p>
+  `;
+}
+
+function showAddHistoryForm() {
+  if (!selectedMemberId) {
+    alert('Por favor, seleccione un miembro de la familia primero');
+    return;
+  }
+  
+  document.getElementById('addRecordModalTitle').textContent = 'Agregar Registro al Historial';
+  document.getElementById('addRecordModalBody').innerHTML = `
+    <div class="mb-3">
+      <label class="form-label">Fecha</label>
+      <input type="date" class="form-control" id="historyDate" value="${new Date().toISOString().split('T')[0]}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Tipo de consulta</label>
+      <select class="form-select" id="historyType">
+        <option value="consulta">Consulta general</option>
+        <option value="control">Control de rutina</option>
+        <option value="urgencia">Urgencia</option>
+        <option value="especialista">Especialista</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Motivo de la consulta</label>
+      <input type="text" class="form-control" id="historyReason">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Diagnóstico</label>
+      <textarea class="form-control" id="historyDiagnosis" rows="2"></textarea>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Tratamiento o indicaciones</label>
+      <textarea class="form-control" id="historyTreatment" rows="2"></textarea>
+    </div>
+  `;
+  
+  document.getElementById('saveRecordBtn').onclick = saveHistoryRecord;
+  
+  // Mostrar el modal
+  new bootstrap.Modal(document.getElementById('addRecordModal')).show();
+}
+
+function showAddExamForm() {
+  if (!selectedMemberId) {
+    alert('Por favor, seleccione un miembro de la familia primero');
+    return;
+  }
+  
+  document.getElementById('addRecordModalTitle').textContent = 'Agregar Examen Médico';
+  document.getElementById('addRecordModalBody').innerHTML = `
+    <div class="mb-3">
+      <label class="form-label">Fecha</label>
+      <input type="date" class="form-control" id="examDate" value="${new Date().toISOString().split('T')[0]}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Tipo de examen</label>
+      <select class="form-select" id="examType">
+        <option value="sangre">Análisis de sangre</option>
+        <option value="orina">Análisis de orina</option>
+        <option value="heces">Análisis de heces</option>
+        <option value="imagen">Estudio por imágenes</option>
+         <option value="Electrocardiograma">Estudio Cardiaco</option>
+          <option value="Holter de Presion">Estudio Presion Arterial</option>
+        <option value="otros">Otros</option>
+      </select>
+    </div>
+    <div id="bloodExamFields">
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Glucosa (mg/dL)</label>
+          <input type="number" class="form-control" id="examGlucose">
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Colesterol (mg/dL)</label>
+          <input type="number" class="form-control" id="examCholesterol">
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Triglicéridos (mg/dL)</label>
+          <input type="number" class="form-control" id="examTriglycerides">
+        </div>
+      </div>
+    </div>
+    <div id="otherExamFields" style="display: none;">
+      <div class="mb-3">
+        <label class="form-label">Resultado</label>
+        <input type="text" class="form-control" id="examResult">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Observaciones</label>
+        <textarea class="form-control" id="examObservations" rows="2"></textarea>
+      </div>
+    </div>
+  `;
+  
+  // Mostrar/ocultar campos según el tipo de examen
+  document.getElementById('examType').addEventListener('change', function() {
+    if (this.value === 'sangre') {
+      document.getElementById('bloodExamFields').style.display = 'block';
+      document.getElementById('otherExamFields').style.display = 'none';
+    } else {
+      document.getElementById('bloodExamFields').style.display = 'none';
+      document.getElementById('otherExamFields').style.display = 'block';
+    }
+  });
+  
+  document.getElementById('saveRecordBtn').onclick = saveExamRecord;
+  
+  // Mostrar el modal
+  new bootstrap.Modal(document.getElementById('addRecordModal')).show();
+}
+
+function saveHistoryRecord() {
+  const member = familia.miembros.find(m => m.id === selectedMemberId);
+  if (!member) return;
+  
+  const newRecord = {
+    fecha: document.getElementById('historyDate').value,
+    tipo: document.getElementById('historyType').value,
+    motivo: document.getElementById('historyReason').value,
+    diagnostico: document.getElementById('historyDiagnosis').value,
+    tratamiento: document.getElementById('historyTreatment').value
+  };
+  
+  if (!member.historial) member.historial = [];
+  member.historial.push(newRecord);
+  
+  // Cerrar modal y actualizar vista
+  bootstrap.Modal.getInstance(document.getElementById('addRecordModal')).hide();
+  renderClinicalHistory(member);
+  renderRecentEvents(member);
+  
+  alert('Registro agregado correctamente');
+}
+
+function saveExamRecord() {
+  const member = familia.miembros.find(m => m.id === selectedMemberId);
+  if (!member) return;
+  
+  const examType = document.getElementById('examType').value;
+  let newExam = {
+    fecha: document.getElementById('examDate').value,
+    tipo: examType
+  };
+  
+  if (examType === 'sangre') {
+    newExam.glucosa = parseInt(document.getElementById('examGlucose').value) || 0;
+    newExam.colesterol = parseInt(document.getElementById('examCholesterol').value) || 0;
+    newExam.trigliceridos = parseInt(document.getElementById('examTriglycerides').value) || 0;
+  } else {
+    newExam.resultado = document.getElementById('examResult').value;
+    newExam.observaciones = document.getElementById('examObservations').value;
+  }
+  
+  if (!member.examenes) member.examenes = [];
+  member.examenes.push(newExam);
+  
+  // Cerrar modal y actualizar vista
+  bootstrap.Modal.getInstance(document.getElementById('addRecordModal')).hide();
+  renderMedicalExams(member);
+  
+  alert('Examen agregado correctamente');
+}
+</script>
+</body>
+</html>
